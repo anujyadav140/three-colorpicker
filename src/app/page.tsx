@@ -40,7 +40,7 @@ const initialColors: ColorMap = PART_NAMES.reduce((acc, name) => {
 function Model({ colors }: { colors: ColorMap }) {
   const { scene, nodes } = useGLTF(MODEL_URL) as unknown as GLTFResult
 
-  // debug: list out all meshes so you can confirm names
+  // debug: list mesh names once
   useEffect(() => {
     const meshNames: string[] = []
     scene.traverse((obj) => {
@@ -73,7 +73,7 @@ function Model({ colors }: { colors: ColorMap }) {
       mats.forEach((m) => {
         if (!hasColorProp(m)) return
 
-        // —— strip _every_ map that could introduce shading/specularity
+        // strip all maps
         ;[
           'map',
           'normalMap',
@@ -85,16 +85,11 @@ function Model({ colors }: { colors: ColorMap }) {
           if ((m as any)[k]) (m as any)[k] = null
         })
 
-        // —— force fully matte
+        // force fully matte
         if ('roughness' in m) (m as any).roughness = 1
         if ('metalness' in m) (m as any).metalness = 0
 
-        // —— if you still see z-fighting, uncomment these:
-        // m.polygonOffset = true
-        // m.polygonOffsetFactor = 1
-        // m.polygonOffsetUnits = 1
-
-        // —— finally set your color
+        // finally set your color
         m.color.set(colors[name])
         m.needsUpdate = true
       })
@@ -107,12 +102,25 @@ function Model({ colors }: { colors: ColorMap }) {
 export default function Page() {
   const [colors, setColors] = useState<ColorMap>(initialColors)
 
+  // listen for messages from Flutter WebView
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      // expect { part: string, color: string }
+      const { part, color } = e.data as { part: string; color: string }
+      if (PART_NAMES.includes(part as any)) {
+        setColors((prev) => ({ ...prev, [part]: color }))
+      }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [])
+
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
       <Canvas
         camera={{ position: [0, 0, 3], fov: 50 }}
-        dpr={[1, 1]}              // lock devicePixelRatio to avoid sub-pixel flicker
-        gl={{ antialias: true }} // ensure antialiasing is on
+        dpr={[1, 1]}
+        gl={{ antialias: true }}
       >
         <ambientLight intensity={0.6} />
         <directionalLight position={[5, 5, 5]} intensity={1} />
@@ -137,62 +145,6 @@ export default function Page() {
           enablePan={false}
         />
       </Canvas>
-
-      {/* Color picker UI */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '1rem',
-          left: '1rem',
-          background: 'rgba(0,0,0,0.45)',
-          padding: '0.75rem',
-          borderRadius: '4px',
-          color: '#fff',
-          fontSize: '0.9rem',
-        }}
-      >
-        {PART_NAMES.map((name) => (
-          <label
-            key={name}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              marginBottom: '0.5rem',
-            }}
-          >
-            {name.replace(/jordans_?/i, '')}
-            <input
-              type="color"
-              value={colors[name]}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                setColors((prev) => ({
-                  ...prev,
-                  [name]: e.target.value,
-                }))
-              }
-              style={{
-                width: '1.5rem',
-                height: '1.5rem',
-                border: 'none',
-                background: 'transparent',
-                cursor: 'pointer',
-              }}
-            />
-          </label>
-        ))}
-      </div>
-
-      <style jsx global>{`
-        html,
-        body,
-        #__next {
-          margin: 0;
-          padding: 0;
-          width: 100%;
-          height: 100%;
-        }
-      `}</style>
     </div>
   )
 }
