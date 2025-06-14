@@ -20,8 +20,8 @@ type GLTFResult = {
   nodes: Record<string, Mesh>
 }
 
-// const MODEL_URL = 'https://hwirj3tptvfk3tad.public.blob.vercel-storage.com/jordans_1-7nkPL27q2fIwTDUDEfsQLWT1AOmv3A.glb'
-const MODEL_URL = '/jordans_1.1.glb'; // local path for development
+const MODEL_URL = 'https://hwirj3tptvfk3tad.public.blob.vercel-storage.com/jordans_1.1-IkCxbvyxaqKEYTnxkyd9TpzqMtOEwu.glb'
+// const MODEL_URL = '/jordans_1.1.glb'; // local path for development
 const PART_NAMES = [
   "Jordan_logo",
   "Jordan_back",
