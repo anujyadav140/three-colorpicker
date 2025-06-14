@@ -20,7 +20,7 @@ type GLTFResult = {
   nodes: Record<string, Mesh>
 }
 
-const MODEL_URL = '/jordans_1.glb'
+const MODEL_URL = "https://firebasestorage.googleapis.com/v0/b/nike-design.firebasestorage.app/o/jordans_1.glb?alt=media&token=4a3d1cec-b3e9-4a81-a95e-9e5f47f3cb82"
 const PART_NAMES = [
   "Jordan_logo",
   "Jordan_back",
