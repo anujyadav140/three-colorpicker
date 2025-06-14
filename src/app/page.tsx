@@ -21,14 +21,14 @@ type GLTFResult = {
 
 const MODEL_URL = '/jordans_1.glb'; // local path for development
 const PART_NAMES = [
-  "Jordan_logo",
-  "Jordan_back",
-  "Jordan_side",
-  "Jordan_front",
-  "Jordan_strap",
-  "Jordan_skeleton",
-  "Jordan_sole",
-  "Jordan_shoelaces"
+  "Logo",
+  "Ankle Flap",
+  "Lace Guard Area",
+  "Midsole",
+  "Outsole",
+  "Side Panel",
+  "Upper",
+  "Laces"
 ] as const
 
 type ColorMap = Record<typeof PART_NAMES[number], string>
