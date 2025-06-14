@@ -28,6 +28,7 @@ const PART_NAMES = [
   "Jordan_strap",
   "Jordan_skeleton",
   "Jordan_sole",
+  "Jordan_shoelaces"
 ] as const
 
 type ColorMap = Record<typeof PART_NAMES[number], string>
