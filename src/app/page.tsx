@@ -1,10 +1,9 @@
 // src/app/page.tsx
 'use client'
 
-import React, { useState, useEffect, ChangeEvent, Suspense } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { useGLTF, Html, OrbitControls, Center } from '@react-three/drei'
-import * as THREE from 'three'
 import type { Group, Mesh, Material, Color as ThreeColor } from 'three'
 
 // helper to detect & set color on a material
@@ -20,7 +19,6 @@ type GLTFResult = {
   nodes: Record<string, Mesh>
 }
 
-// const MODEL_URL = 'https://hwirj3tptvfk3tad.public.blob.vercel-storage.com/jordans_1.1-IkCxbvyxaqKEYTnxkyd9TpzqMtOEwu.glb'
 const MODEL_URL = '/jordans_1.glb'; // local path for development
 const PART_NAMES = [
   "Jordan_logo",
@@ -119,14 +117,18 @@ export default function Page() {
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
       <Canvas
-        camera={{ position: [0, 0, 3], fov: 50 }}
+        // move camera closer for a tighter, zoomed-in view
+        camera={{ position: [0, 0, 1], fov: 35 }}
         dpr={[1, 1]}
-        gl={{ antialias: true }}
+        gl={{ antialias: true, alpha: false }}
       >
+        {/* White background */}
+        <color attach="background" args={["#ffffff"]} />
+
         <ambientLight intensity={0.6} />
         <directionalLight position={[5, 5, 5]} intensity={1} />
 
-        <Suspense fallback={<Html center>Loading model…</Html>}>
+        <Suspense fallback={<Html center style={{ color: 'black' }}>Loading model…</Html>}>
           <Center>
             <Model colors={colors} />
           </Center>
@@ -141,8 +143,8 @@ export default function Page() {
           maxPolarAngle={Math.PI}
           enableZoom
           zoomSpeed={1}
-          minDistance={0.5}
-          maxDistance={20}
+          minDistance={0.05}
+          maxDistance={5}
           enablePan={false}
         />
       </Canvas>
