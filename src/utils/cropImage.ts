@@ -1,5 +1,5 @@
 // src/utils/cropImage.ts
-
+"use client"
 /**
  * Crop an image given source and cropping rectangle, returning a Blob.
  * @param imageSrc - data URL or remote URL of the image
