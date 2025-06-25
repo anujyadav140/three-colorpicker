@@ -1,16 +1,13 @@
-// src/app/page.tsx
 'use client'
 
-import React, { useState, useEffect, Suspense, useCallback } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { useGLTF, Html, OrbitControls, Center } from '@react-three/drei'
 import * as THREE from 'three'
 import type { Group, Mesh, MeshStandardMaterial } from 'three'
-import Cropper from 'react-easy-crop'
-
 
 // Define the parts of the shoe
-type PartName =
+export type PartName =
   | 'logo' | 'ankleflap' | 'laceguardarea'
   | 'midsole' | 'outsole' | 'sidepanel' | 'upper' | 'laces'
 
@@ -43,7 +40,7 @@ const initialTextures: TextureMap = PART_NAMES.reduce(
 )
 
 // Mapping parameters for textures
-interface Mapping { offsetX: number; offsetY: number; scale: number }
+export interface Mapping { offsetX: number; offsetY: number; scale: number }
 const initialMappings: Record<PartName, Mapping> = PART_NAMES.reduce(
   (acc, p) => ({ ...acc, [p]: { offsetX: 0, offsetY: 0, scale: 1 } }),
   {} as Record<PartName, Mapping>
@@ -79,6 +76,7 @@ function Model({
       if (!obj?.isMesh) return
       const mesh = obj as Mesh
 
+      // clone materials once
       if (!mesh.userData.cloned) {
         const originals = Array.isArray(mesh.material)
           ? mesh.material
@@ -95,7 +93,7 @@ function Model({
       materials.forEach((mat) => {
         mat.map = null
         if (textures[name]) {
-          const tex = loader.load(textures[name]!)
+          const tex = loader.load(textures[name]!) // image URL passed from Flutter
           tex.flipY = false
           tex.wrapS = THREE.RepeatWrapping
           tex.wrapT = THREE.RepeatWrapping
@@ -116,6 +114,7 @@ function Model({
         mat.needsUpdate = true
       })
 
+      // outline for highlighting
       if (mesh.userData.outline) {
         mesh.remove(mesh.userData.outline)
         mesh.userData.outline.geometry.dispose()
@@ -159,81 +158,41 @@ export default function Page() {
   const [selectedPart, setSelectedPart] = useState<PartName | null>(null)
   const [interactive, setInteractive] = useState(true)
 
-  // Cropping states
-  const [imageSrc, setImageSrc] = useState<string | null>(null)
-  const [showCrop, setShowCrop] = useState(false)
-  const [crop, setCrop] = useState({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
-  const [croppedAreaPixels, setCroppedAreaPixels] =
-    useState<{ x: number; y: number; width: number; height: number } | null>(null)
-
   const toggleInteractive = () => {
     if (interactive) setSelectedPart(null)
     setInteractive((v) => !v)
   }
 
-  // External postMessage handler
+  // Listen for messages from Flutter front-end
   useEffect(() => {
     const handler = (e: MessageEvent) => {
-      const { part, color, image } = e.data as { part: string; color?: string; image?: string }
+      const {
+        part,
+        color,
+        image,
+        mapping,
+      } = e.data as {
+        part: string
+        color?: string
+        image?: string
+        mapping?: Mapping
+      }
       if (!PART_NAMES.includes(part as PartName)) return
       if (color) {
         setColors((c) => ({ ...c, [part as PartName]: color }))
         setTextures((t) => ({ ...t, [part as PartName]: null }))
       }
       if (image) {
+        // image should be a URL or base64 string passed from Flutter
         setTextures((t) => ({ ...t, [part as PartName]: image }))
+      }
+      if (mapping) {
+        setMappings((m) => ({ ...m, [part as PartName]: mapping }))
       }
     }
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
   }, [])
-
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!selectedPart) return
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      setImageSrc(reader.result as string)
-      setShowCrop(true)
-    }
-    reader.readAsDataURL(file)
-  }
-
-  const onCropComplete = useCallback((_: any, cp: any) => setCroppedAreaPixels(cp), [])
-
-  const applyCrop = useCallback(async () => {
-    if (imageSrc && croppedAreaPixels && selectedPart) {
-      try {
-        const blob = await getCroppedImg(imageSrc, croppedAreaPixels)
-        const url = URL.createObjectURL(blob)
-        setTextures((t) => ({ ...t, [selectedPart]: url }))
-      } catch (e) {
-        console.error(e)
-      }
-    }
-    setShowCrop(false)
-    setImageSrc(null)
-    setCrop({ x: 0, y: 0 })
-    setZoom(1)
-  }, [imageSrc, croppedAreaPixels, selectedPart])
-
-  const cancelCrop = () => {
-    setShowCrop(false)
-    setImageSrc(null)
-    setCrop({ x: 0, y: 0 })
-    setZoom(1)
-  }
-
-  // Mapping controls
-  const updateMapping = (key: keyof Mapping, value: number) => {
-    if (!selectedPart) return
-    setMappings((m) => ({
-      ...m,
-      [selectedPart]: { ...m[selectedPart], [key]: value },
-    }))
-  }
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
@@ -268,47 +227,10 @@ export default function Page() {
         <OrbitControls makeDefault target={[0,0,0]} enableDamping dampingFactor={0.1} minPolarAngle={0} maxPolarAngle={Math.PI} enableZoom zoomSpeed={1} minDistance={0.05} maxDistance={5} enablePan={false} />
       </Canvas>
 
+      {/* HUD: shows selected part label only; all image & mapping interactions come from Flutter */}
       {interactive && selectedPart && (
         <div className="hud">
           <div>{HUMAN_LABELS[selectedPart]}</div>
-          <input type="file" accept="image/*" onChange={onFileChange} style={{ marginTop: '8px' }} />
-
-          {textures[selectedPart] && (
-            <div className="controls">
-              <label>
-                Offset X:
-                <input type="range" min={-1} max={1} step={0.01} value={mappings[selectedPart].offsetX} onChange={e => updateMapping('offsetX', parseFloat(e.target.value))} />
-              </label>
-              <label>
-                Offset Y:
-                <input type="range" min={-1} max={1} step={0.01} value={mappings[selectedPart].offsetY} onChange={e => updateMapping('offsetY', parseFloat(e.target.value))} />
-              </label>
-              <label>
-                Scale:
-                <input type="range" min={0.5} max={5} step={0.1} value={mappings[selectedPart].scale} onChange={e => updateMapping('scale', parseFloat(e.target.value))} />
-              </label>
-            </div>
-          )}
-        </div>
-      )}
-
-      {showCrop && imageSrc && (
-        <div className="crop-modal">
-          <div className="cropper-container">
-            <Cropper
-              image={imageSrc}
-              crop={crop}
-              zoom={zoom}
-              aspect={1}
-              onCropChange={setCrop}
-              onZoomChange={setZoom}
-              onCropComplete={onCropComplete}
-            />
-          </div>
-          <div className="crop-actions">
-            <button onClick={cancelCrop}>Cancel</button>
-            <button onClick={applyCrop}>Apply</button>
-          </div>
         </div>
       )}
 
@@ -321,56 +243,8 @@ export default function Page() {
         .slider::before { content:""; position:absolute; width:20px; height:20px; left:2px; bottom:2px; background:#fff; transition:0.2s; border-radius:50%; }
         input:checked + .slider { background:#4caf50; }
         input:checked + .slider::before { transform:translateX(26px); }
-        .hud { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.7); color:#fff; padding:8px; border-radius:4px; display:flex; flex-direction:column; gap:8px; }
-        .controls label { display:flex; flex-direction:column; font-size:0.8rem; }
-        .crop-modal { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:20; }
-        .cropper-container { width:300px; height:300px; position:relative; background:#333; }
-        .crop-actions { margin-top:16px; display:flex; gap:8px; }
-        .crop-actions button { padding:8px 16px; border:none; background:#4caf50; color:#fff; border-radius:4px; cursor:pointer; }
-        .crop-actions button:hover { opacity:0.9; }
+        .hud { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.7); color:#fff; padding:8px; border-radius:4px; }
       `}</style>
     </div>
   )
-}
-
-/**
- * Crop an image given source and cropping rectangle, returning a Blob.
- */
- async function getCroppedImg(
-  imageSrc: string,
-  pixelCrop: { x: number; y: number; width: number; height: number }
-): Promise<Blob> {
-  const createImage = (url: string): Promise<HTMLImageElement> =>
-    new Promise((resolve, reject) => {
-      const img = new Image()
-      img.setAttribute('crossOrigin', 'anonymous')
-      img.onload = () => resolve(img)
-      img.onerror = (err) => reject(err)
-      img.src = url
-    })
-
-  const image = await createImage(imageSrc)
-  const canvas = document.createElement('canvas')
-  canvas.width = pixelCrop.width
-  canvas.height = pixelCrop.height
-  const ctx = canvas.getContext('2d')!
-
-  ctx.drawImage(
-    image,
-    pixelCrop.x,
-    pixelCrop.y,
-    pixelCrop.width,
-    pixelCrop.height,
-    0,
-    0,
-    pixelCrop.width,
-    pixelCrop.height
-  )
-
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob)
-      else reject(new Error('Canvas is empty'))
-    }, 'image/png')
-  })
 }
