@@ -125,7 +125,7 @@ function Model({
           mat.color.set(colors[name])
         }
 
-        // **Always** apply mapping when there is a map
+        // Always apply mapping when there is a map
         if (mat.map) {
           const { offsetX, offsetY, scale } = mappings[name]
           const tile = 2 * scale
@@ -187,17 +187,14 @@ export default function Page() {
     setInteractive((v) => !v)
   }
 
-  const imageBuffers = React.useRef<Record<string, string>>({})
-
   useEffect(() => {
     const handler = (e: MessageEvent) => {
       console.log('📩 from Flutter', e.data)
-      const { part, color, mapping, imageChunk, done } = e.data as {
+      const { part, color, mapping, image } = e.data as {
         part: string
         color?: string
         mapping?: Mapping
-        imageChunk?: string
-        done?: boolean
+        image?: string
       }
       if (!PART_NAMES.includes(part as PartName)) return
 
@@ -211,19 +208,9 @@ export default function Page() {
         setMappings((m) => ({ ...m, [part as PartName]: mapping }))
       }
 
-      if (imageChunk !== undefined) {
-        if (!imageBuffers.current[part]) {
-          imageBuffers.current[part] = ''
-        }
-        imageBuffers.current[part] += imageChunk
-
-        if (done) {
-          setTextures((t) => ({
-            ...t,
-            [part as PartName]: imageBuffers.current[part],
-          }))
-          delete imageBuffers.current[part]
-        }
+      if (image) {
+        // image is now a URL string
+        setTextures((t) => ({ ...t, [part as PartName]: image }))
       }
     }
 
