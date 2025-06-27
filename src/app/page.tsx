@@ -6,7 +6,7 @@ import { useGLTF, Html, OrbitControls, Center } from '@react-three/drei'
 import * as THREE from 'three'
 import type { Group, Mesh, MeshStandardMaterial } from 'three'
 
-// Define the parts of the shoe
+// --- types & constants ---
 export type PartName =
   | 'logo'
   | 'ankleflap'
@@ -27,6 +27,12 @@ const PART_NAMES: PartName[] = [
   'upper',
   'laces',
 ]
+
+export interface Mapping {
+  offsetX: number
+  offsetY: number
+  scale: number
+}
 
 const HUMAN_LABELS: Record<PartName, string> = {
   logo: 'Logo',
@@ -51,11 +57,6 @@ const initialTextures: TextureMap = PART_NAMES.reduce(
   {} as TextureMap
 )
 
-export interface Mapping {
-  offsetX: number
-  offsetY: number
-  scale: number
-}
 const initialMappings: Record<PartName, Mapping> = PART_NAMES.reduce(
   (acc, p) => ({ ...acc, [p]: { offsetX: 0, offsetY: 0, scale: 1 } }),
   {} as Record<PartName, Mapping>
@@ -67,6 +68,7 @@ interface GLTFResult {
 }
 const MODEL_URL = '/jordans_1.glb'
 
+// --- Model component ---
 function Model({
   colors,
   textures,
@@ -94,7 +96,7 @@ function Model({
       if (!obj?.isMesh) return
       const mesh = obj as Mesh
 
-      // clone materials once
+      // Clone material
       if (!mesh.userData.cloned) {
         const originals = Array.isArray(mesh.material)
           ? mesh.material
@@ -117,17 +119,18 @@ function Model({
           tex.wrapS = THREE.RepeatWrapping
           tex.wrapT = THREE.RepeatWrapping
           tex.anisotropy = maxAniso
-
-          // apply current mapping
-          const { offsetX, offsetY, scale } = mappings[name]
-          const tile = 2 * scale
-          tex.repeat.set(tile, tile)
-          tex.offset.set(offsetX, offsetY)
-
           mat.map = tex
           mat.color.set('#ffffff')
         } else {
           mat.color.set(colors[name])
+        }
+
+        // **Always** apply mapping when there is a map
+        if (mat.map) {
+          const { offsetX, offsetY, scale } = mappings[name]
+          const tile = 2 * scale
+          mat.map.repeat.set(tile, tile)
+          mat.map.offset.set(offsetX, offsetY)
         }
 
         mat.roughness = 1
@@ -135,14 +138,13 @@ function Model({
         mat.needsUpdate = true
       })
 
-      // outline for highlighting
+      // Highlight outline
       if (mesh.userData.outline) {
         mesh.remove(mesh.userData.outline)
         mesh.userData.outline.geometry.dispose()
         mesh.userData.outline.material.dispose()
         delete mesh.userData.outline
       }
-
       if (interactive && name === selectedPart) {
         const edges = new THREE.EdgesGeometry(mesh.geometry, 15)
         const outlineMat = new THREE.LineBasicMaterial({ color: 0xffff00 })
@@ -172,6 +174,7 @@ function Model({
   )
 }
 
+// --- Page component ---
 export default function Page() {
   const [colors, setColors] = useState<ColorMap>(initialColors)
   const [textures, setTextures] = useState<TextureMap>(initialTextures)
@@ -184,21 +187,12 @@ export default function Page() {
     setInteractive((v) => !v)
   }
 
-  // Buffers to accumulate incoming image chunks per part
   const imageBuffers = React.useRef<Record<string, string>>({})
 
-  // Listen for messages from Flutter front-end
   useEffect(() => {
     const handler = (e: MessageEvent) => {
-      console.log('📩 message from Flutter:', e.data)
-
-      const {
-        part,
-        color,
-        mapping,
-        imageChunk,
-        done,
-      } = e.data as {
+      console.log('📩 from Flutter', e.data)
+      const { part, color, mapping, imageChunk, done } = e.data as {
         part: string
         color?: string
         mapping?: Mapping
@@ -213,11 +207,10 @@ export default function Page() {
       }
 
       if (mapping) {
-        console.log(`‣ applying mapping to ${part}:`, mapping)
+        console.log(`‣ applying mapping to ${part}`, mapping)
         setMappings((m) => ({ ...m, [part as PartName]: mapping }))
       }
 
-      // Handle chunked image assembly
       if (imageChunk !== undefined) {
         if (!imageBuffers.current[part]) {
           imageBuffers.current[part] = ''
@@ -241,9 +234,15 @@ export default function Page() {
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
       <div className="toggle-container">
-        <span className="toggle-text">Highlight: {interactive ? 'ON' : 'OFF'}</span>
+        <span className="toggle-text">
+          Highlight: {interactive ? 'ON' : 'OFF'}
+        </span>
         <label className="switch">
-          <input type="checkbox" checked={interactive} onChange={toggleInteractive} />
+          <input
+            type="checkbox"
+            checked={interactive}
+            onChange={toggleInteractive}
+          />
           <span className="slider" />
         </label>
       </div>
@@ -256,6 +255,7 @@ export default function Page() {
         <color attach="background" args={['#ffffff']} />
         <ambientLight intensity={0.6} />
         <directionalLight position={[5, 5, 5]} intensity={1} />
+
         <Suspense fallback={<Html center>Loading model…</Html>}>
           <Center>
             <Model
@@ -268,6 +268,7 @@ export default function Page() {
             />
           </Center>
         </Suspense>
+
         <OrbitControls
           makeDefault
           target={[0, 0, 0]}
@@ -284,9 +285,7 @@ export default function Page() {
       </Canvas>
 
       {interactive && selectedPart && (
-        <div className="hud">
-          <div>{HUMAN_LABELS[selectedPart]}</div>
-        </div>
+        <div className="hud">{HUMAN_LABELS[selectedPart]}</div>
       )}
 
       <style jsx>{`
@@ -302,11 +301,9 @@ export default function Page() {
           margin-right: 8px;
           font-size: 0.9rem;
           color: #222;
-          user-select: none;
         }
         .switch {
           position: relative;
-          display: inline-block;
           width: 50px;
           height: 24px;
         }
@@ -317,14 +314,13 @@ export default function Page() {
         }
         .slider {
           position: absolute;
-          cursor: pointer;
           top: 0;
           left: 0;
           right: 0;
           bottom: 0;
           background: #ccc;
-          transition: 0.2s;
           border-radius: 12px;
+          transition: 0.2s;
         }
         .slider::before {
           content: '';
@@ -334,8 +330,8 @@ export default function Page() {
           left: 2px;
           bottom: 2px;
           background: #fff;
-          transition: 0.2s;
           border-radius: 50%;
+          transition: 0.2s;
         }
         input:checked + .slider {
           background: #4caf50;
