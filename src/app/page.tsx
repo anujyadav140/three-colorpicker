@@ -51,7 +51,6 @@ const initialTextures: TextureMap = PART_NAMES.reduce(
   {} as TextureMap
 )
 
-// Mapping parameters for textures
 export interface Mapping {
   offsetX: number
   offsetY: number
@@ -111,13 +110,15 @@ function Model({
 
       materials.forEach((mat) => {
         mat.map = null
+
         if (textures[name]) {
-          const tex = loader.load(textures[name]!) // image URL/data URL from Flutter
+          const tex = loader.load(textures[name]!)
           tex.flipY = false
           tex.wrapS = THREE.RepeatWrapping
           tex.wrapT = THREE.RepeatWrapping
           tex.anisotropy = maxAniso
 
+          // apply current mapping
           const { offsetX, offsetY, scale } = mappings[name]
           const tile = 2 * scale
           tex.repeat.set(tile, tile)
@@ -128,6 +129,7 @@ function Model({
         } else {
           mat.color.set(colors[name])
         }
+
         mat.roughness = 1
         mat.metalness = 0
         mat.needsUpdate = true
@@ -188,6 +190,8 @@ export default function Page() {
   // Listen for messages from Flutter front-end
   useEffect(() => {
     const handler = (e: MessageEvent) => {
+      console.log('📩 message from Flutter:', e.data)
+
       const {
         part,
         color,
@@ -209,24 +213,22 @@ export default function Page() {
       }
 
       if (mapping) {
+        console.log(`‣ applying mapping to ${part}:`, mapping)
         setMappings((m) => ({ ...m, [part as PartName]: mapping }))
       }
 
       // Handle chunked image assembly
       if (imageChunk !== undefined) {
-        // initialize buffer if needed
         if (!imageBuffers.current[part]) {
           imageBuffers.current[part] = ''
         }
         imageBuffers.current[part] += imageChunk
 
         if (done) {
-          // final chunk received—set the texture
           setTextures((t) => ({
             ...t,
             [part as PartName]: imageBuffers.current[part],
           }))
-          // clear buffer
           delete imageBuffers.current[part]
         }
       }
