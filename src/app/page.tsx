@@ -8,12 +8,24 @@ import type { Group, Mesh, MeshStandardMaterial } from 'three'
 
 // Define the parts of the shoe
 export type PartName =
-  | 'logo' | 'ankleflap' | 'laceguardarea'
-  | 'midsole' | 'outsole' | 'sidepanel' | 'upper' | 'laces'
+  | 'logo'
+  | 'ankleflap'
+  | 'laceguardarea'
+  | 'midsole'
+  | 'outsole'
+  | 'sidepanel'
+  | 'upper'
+  | 'laces'
 
 const PART_NAMES: PartName[] = [
-  'logo','ankleflap','laceguardarea','midsole',
-  'outsole','sidepanel','upper','laces',
+  'logo',
+  'ankleflap',
+  'laceguardarea',
+  'midsole',
+  'outsole',
+  'sidepanel',
+  'upper',
+  'laces',
 ]
 
 const HUMAN_LABELS: Record<PartName, string> = {
@@ -40,13 +52,20 @@ const initialTextures: TextureMap = PART_NAMES.reduce(
 )
 
 // Mapping parameters for textures
-export interface Mapping { offsetX: number; offsetY: number; scale: number }
+export interface Mapping {
+  offsetX: number
+  offsetY: number
+  scale: number
+}
 const initialMappings: Record<PartName, Mapping> = PART_NAMES.reduce(
   (acc, p) => ({ ...acc, [p]: { offsetX: 0, offsetY: 0, scale: 1 } }),
   {} as Record<PartName, Mapping>
 )
 
-interface GLTFResult { scene: Group; nodes: Record<string, Mesh> }
+interface GLTFResult {
+  scene: Group
+  nodes: Record<string, Mesh>
+}
 const MODEL_URL = '/jordans_1.glb'
 
 function Model({
@@ -81,19 +100,19 @@ function Model({
         const originals = Array.isArray(mesh.material)
           ? mesh.material
           : [mesh.material]
-        const clones = originals.map((m) => (m.clone() as MeshStandardMaterial))
+        const clones = originals.map((m) => m.clone() as MeshStandardMaterial)
         mesh.material = Array.isArray(mesh.material) ? clones : clones[0]
         mesh.userData.cloned = true
       }
 
       const materials = Array.isArray(mesh.material)
-        ? mesh.material as MeshStandardMaterial[]
+        ? (mesh.material as MeshStandardMaterial[])
         : [mesh.material as MeshStandardMaterial]
 
       materials.forEach((mat) => {
         mat.map = null
         if (textures[name]) {
-          const tex = loader.load(textures[name]!) // image URL/​data URL from Flutter
+          const tex = loader.load(textures[name]!) // image URL/data URL from Flutter
           tex.flipY = false
           tex.wrapS = THREE.RepeatWrapping
           tex.wrapT = THREE.RepeatWrapping
@@ -163,32 +182,56 @@ export default function Page() {
     setInteractive((v) => !v)
   }
 
+  // Buffers to accumulate incoming image chunks per part
+  const imageBuffers = React.useRef<Record<string, string>>({})
+
   // Listen for messages from Flutter front-end
   useEffect(() => {
     const handler = (e: MessageEvent) => {
       const {
         part,
         color,
-        image,
         mapping,
+        imageChunk,
+        done,
       } = e.data as {
         part: string
         color?: string
-        image?: string
         mapping?: Mapping
+        imageChunk?: string
+        done?: boolean
       }
       if (!PART_NAMES.includes(part as PartName)) return
+
       if (color) {
         setColors((c) => ({ ...c, [part as PartName]: color }))
         setTextures((t) => ({ ...t, [part as PartName]: null }))
       }
-      if (image) {
-        setTextures((t) => ({ ...t, [part as PartName]: image }))
-      }
+
       if (mapping) {
         setMappings((m) => ({ ...m, [part as PartName]: mapping }))
       }
+
+      // Handle chunked image assembly
+      if (imageChunk !== undefined) {
+        // initialize buffer if needed
+        if (!imageBuffers.current[part]) {
+          imageBuffers.current[part] = ''
+        }
+        imageBuffers.current[part] += imageChunk
+
+        if (done) {
+          // final chunk received—set the texture
+          setTextures((t) => ({
+            ...t,
+            [part as PartName]: imageBuffers.current[part],
+          }))
+          // clear buffer
+          delete imageBuffers.current[part]
+        }
+      }
     }
+
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
   }, [])
@@ -208,7 +251,7 @@ export default function Page() {
         gl={{ antialias: true, alpha: false }}
         onPointerMissed={() => interactive && setSelectedPart(null)}
       >
-        <color attach="background" args={["#ffffff"]} />
+        <color attach="background" args={['#ffffff']} />
         <ambientLight intensity={0.6} />
         <directionalLight position={[5, 5, 5]} intensity={1} />
         <Suspense fallback={<Html center>Loading model…</Html>}>
@@ -225,7 +268,7 @@ export default function Page() {
         </Suspense>
         <OrbitControls
           makeDefault
-          target={[0,0,0]}
+          target={[0, 0, 0]}
           enableDamping
           dampingFactor={0.1}
           minPolarAngle={0}
@@ -245,15 +288,69 @@ export default function Page() {
       )}
 
       <style jsx>{`
-        .toggle-container { position:absolute; top:20px; right:20px; z-index:10; display:flex; align-items:center; }
-        .toggle-text { margin-right:8px; font-size:0.9rem; color:#222; user-select:none; }
-        .switch { position:relative; display:inline-block; width:50px; height:24px; }
-        .switch input { opacity:0; width:0; height:0; }
-        .slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:#ccc; transition:0.2s; border-radius:12px; }
-        .slider::before { content:""; position:absolute; width:20px; height:20px; left:2px; bottom:2px; background:#fff; transition:0.2s; border-radius:50%; }
-        input:checked + .slider { background:#4caf50; }
-        input:checked + .slider::before { transform:translateX(26px); }
-        .hud { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.7); color:#fff; padding:8px; border-radius:4px; }
+        .toggle-container {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          z-index: 10;
+          display: flex;
+          align-items: center;
+        }
+        .toggle-text {
+          margin-right: 8px;
+          font-size: 0.9rem;
+          color: #222;
+          user-select: none;
+        }
+        .switch {
+          position: relative;
+          display: inline-block;
+          width: 50px;
+          height: 24px;
+        }
+        .switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+        .slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: #ccc;
+          transition: 0.2s;
+          border-radius: 12px;
+        }
+        .slider::before {
+          content: '';
+          position: absolute;
+          width: 20px;
+          height: 20px;
+          left: 2px;
+          bottom: 2px;
+          background: #fff;
+          transition: 0.2s;
+          border-radius: 50%;
+        }
+        input:checked + .slider {
+          background: #4caf50;
+        }
+        input:checked + .slider::before {
+          transform: translateX(26px);
+        }
+        .hud {
+          position: absolute;
+          bottom: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(0, 0, 0, 0.7);
+          color: #fff;
+          padding: 8px;
+          border-radius: 4px;
+        }
       `}</style>
     </div>
   )
