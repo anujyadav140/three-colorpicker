@@ -93,7 +93,7 @@ function Model({
       materials.forEach((mat) => {
         mat.map = null
         if (textures[name]) {
-          const tex = loader.load(textures[name]!) // image URL passed from Flutter
+          const tex = loader.load(textures[name]!) // image URL/​data URL from Flutter
           tex.flipY = false
           tex.wrapS = THREE.RepeatWrapping
           tex.wrapT = THREE.RepeatWrapping
@@ -183,7 +183,6 @@ export default function Page() {
         setTextures((t) => ({ ...t, [part as PartName]: null }))
       }
       if (image) {
-        // image should be a URL or base64 string passed from Flutter
         setTextures((t) => ({ ...t, [part as PartName]: image }))
       }
       if (mapping) {
@@ -224,10 +223,21 @@ export default function Page() {
             />
           </Center>
         </Suspense>
-        <OrbitControls makeDefault target={[0,0,0]} enableDamping dampingFactor={0.1} minPolarAngle={0} maxPolarAngle={Math.PI} enableZoom zoomSpeed={1} minDistance={0.05} maxDistance={5} enablePan={false} />
+        <OrbitControls
+          makeDefault
+          target={[0,0,0]}
+          enableDamping
+          dampingFactor={0.1}
+          minPolarAngle={0}
+          maxPolarAngle={Math.PI}
+          enableZoom
+          zoomSpeed={1}
+          minDistance={0.05}
+          maxDistance={5}
+          enablePan={false}
+        />
       </Canvas>
 
-      {/* HUD: shows selected part label only; all image & mapping interactions come from Flutter */}
       {interactive && selectedPart && (
         <div className="hud">
           <div>{HUMAN_LABELS[selectedPart]}</div>
