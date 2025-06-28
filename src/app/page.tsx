@@ -52,10 +52,17 @@ const initialColors: ColorMap = PART_NAMES.reduce(
 )
 
 type TextureMap = Record<PartName, string | null>
-const initialTextures: TextureMap = PART_NAMES.reduce(
-  (acc, p) => ({ ...acc, [p]: null }),
-  {} as TextureMap
-)
+// ← HERE is where you put your test URL for whichever part you like:
+const initialTextures: TextureMap = {
+  logo: null,
+  ankleflap: null,
+  laceguardarea: null,
+  midsole: null,
+  outsole: null,
+  sidepanel: null,
+  upper: null,
+  laces: null,
+}
 
 const initialMappings: Record<PartName, Mapping> = PART_NAMES.reduce(
   (acc, p) => ({ ...acc, [p]: { offsetX: 0, offsetY: 0, scale: 1 } }),
@@ -88,7 +95,12 @@ function Model({
   const { gl } = useThree()
 
   useEffect(() => {
+    // Setup a TextureLoader that allows cross-origin requests
     const loader = new THREE.TextureLoader()
+    loader.setCrossOrigin('anonymous')
+    // or, if your Three.js version requires:
+    // loader.crossOrigin = 'anonymous'
+
     const maxAniso = gl.capabilities.getMaxAnisotropy()
 
     PART_NAMES.forEach((name) => {
@@ -96,7 +108,7 @@ function Model({
       if (!obj?.isMesh) return
       const mesh = obj as Mesh
 
-      // Clone material
+      // Clone material if we haven't already
       if (!mesh.userData.cloned) {
         const originals = Array.isArray(mesh.material)
           ? mesh.material
@@ -125,7 +137,7 @@ function Model({
           mat.color.set(colors[name])
         }
 
-        // Always apply mapping when there is a map
+        // Apply UV mapping adjustments when texture is present
         if (mat.map) {
           const { offsetX, offsetY, scale } = mappings[name]
           const tile = 2 * scale
@@ -209,7 +221,6 @@ export default function Page() {
       }
 
       if (image) {
-        // image is now a URL string
         setTextures((t) => ({ ...t, [part as PartName]: image }))
       }
     }
